@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<extension>
+	<id>808d8e45-7ff7-4206-859a-22c2d73d9627</id>
+	<name>PLUGIN_TTFFONTS_MODULE_NAME</name>
+	<module>Slim::Plugin::TTFFonts::Plugin</module>
+	<version>1.0</version>
+	<description>PLUGIN_TTFFONTS_MODULE_NAME_DESC</description>
+	<creator>Lyrion Community</creator>
+	<category>hardware</category>
+	<defaultState>enabled</defaultState>
+	<icon></icon>
+	<type>2</type>
+	<targetApplication>
+		<id>Lyrion Music Server</id>
+		<minVersion>9.2</minVersion>
+		<maxVersion>*</maxVersion>
+	</targetApplication>
+</extension>

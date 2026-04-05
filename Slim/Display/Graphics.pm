@@ -35,6 +35,9 @@ my $prefs = preferences('server');
 my $scroll_pad_scroll = 40; # lines of padding between scrolling text
 my $scroll_pad_ticker = 60; # lines of padding in ticker mode
 
+# Developer switch: draw dashed top/bottom guides for each logical text row.
+my $showTextRowBoundsOverlay = 0;
+
 our $defaultPrefs = {
 	'scrollPixels'		   => 2,
 	'scrollPixelsDouble'   => 3,
@@ -44,6 +47,46 @@ our $defaultPrefs = {
 };
 
 $prefs->setValidate({ 'validator' => 'intlimit', 'low' => 1, 'high' => 20 }, qw(scrollPixels scrollPixelsDouble));
+
+sub setShowTextRowBoundsOverlay {
+	$showTextRowBoundsOverlay = $_[0] ? 1 : 0;
+}
+
+sub _rowBoundsOverlayMask {
+	my ($display, $screensize, $maxLine, $dfonts, $sfonts) = @_;
+	return '' unless $showTextRowBoundsOverlay;
+
+	my $bytesPerColumn = $display->bytesPerColumn() || return '';
+	my $height = $display->displayHeight() || return '';
+	my $rows = ($maxLine // 0) + 1;
+
+	# Collect boundary Y positions from font overrides
+	my %ys;
+	for my $row (0 .. $rows - 1) {
+		my $fontname = ($sfonts && $sfonts->{line}[$row])
+		            || ($dfonts && $dfonts->{line}[$row])
+		            || next;
+		my ($topY, $bottomY) = Slim::Display::Lib::Fonts::fontYRange($fontname);
+		next unless defined $topY;
+		@ys{$topY, $bottomY} = ();
+	}
+
+	return '' unless %ys;
+
+	# Build column bitmask for boundary rows
+	my @onColumn = (0) x $bytesPerColumn;
+	for my $y (keys %ys) {
+		next if $y < 0 || $y >= $height;
+		$onColumn[int($y / 8)] |= (1 << (7 - ($y % 8)));
+	}
+
+	my $onCol  = pack('C*', @onColumn);
+	my $offCol = "\x00" x $bytesPerColumn;
+	my $columns = int($screensize / $bytesPerColumn);
+
+	# Dashed guide: one pixel every 5th column
+	return join('', map { $_ % 5 == 0 ? $onCol : $offCol } 0 .. $columns - 1);
+}
 
 BEGIN {
 	Slim::Display::Lib::Fonts::init();
@@ -484,6 +527,11 @@ sub render {
 			$sc->{changed} = 1;
 		} else {
 			$sc->{bits} = undef;
+		}
+
+		if ($showTextRowBoundsOverlay) {
+			my $rowBounds = _rowBoundsOverlayMask($display, $screensize, $maxLine, $dfonts, $sc->{fonts});
+			$bits |= $rowBounds if length $rowBounds;
 		}
 
 		$sc->{bitsref} = \$bits;

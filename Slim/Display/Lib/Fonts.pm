@@ -38,14 +38,13 @@ use File::Spec::Functions qw(catdir catfile);
 use List::Util qw(max);
 use Path::Class;
 use Storable qw(nstore retrieve);
-use Tie::Cache::LRU;
 
 use Slim::Utils::Log;
 use Slim::Utils::Misc;
 use Slim::Utils::OSDetect;
 use Slim::Utils::Prefs;
 
-use constant FT_RENDER_MODE_MONO => 2;
+use Slim::Display::Lib::TTFFonts;
 
 my $prefs = preferences('server');
 
@@ -77,23 +76,7 @@ my $canUseHebrew = sub {
 	return $hasHebrew;
 };
 
-my $hasFreeType;
-my $canUseFreeType = sub {
-	return $hasFreeType if defined $hasFreeType;
-	main::DEBUGLOG && $log->debug('Loading Font::FreeType');
-	eval { require Font::FreeType };
-	if ($@) {
-		logWarning("Unable to load TrueType font support: $@");
-	}
-	$hasFreeType = $@ ? 0 : 1;
-	return $hasFreeType;
-};
-
-my ($ft, $TTFFontFile);
-
-# Keep a cache of up to 256 characters at a time.
-tie my %TTFCache, 'Tie::Cache::LRU', 256;
-%TTFCache = ();
+# (TTF state, font discovery, and glyph rasterization live in TTFFonts.pm)
 
 # template for unpacking strings: U - unpacks Unicode chars into ords
 my $unpackTemplate = 'U*';
@@ -101,63 +84,7 @@ my $unpackTemplate = 'U*';
 my $bidiR = qr/\p{BidiClass:R}/;
 my $bidiL = qr/\p{BidiClass:L}/;
 
-# Font size & Offsets -- Optimized for the free Japanese TrueType font
-# 'sazanami-gothic' from 'waka'.
-#
-# They seem to work pretty well for CODE2000 & Cyberbit as well. - dsully
-
-my %font2TTF = (
-
-	# The standard size - .1 is top line, .2 is bottom.
-	'standard.1' => {
-		'FTFontSize' => 9, # Code2000: max ascender 14, max descender 4
-		'FTBaseline' => 8,
-	},
-
-	'standard.2' => {
-		'FTFontSize' => 14, # Code2000: max ascender 19, max descender 6
-		'FTBaseline' => 28,
-	},
-
-	 # Small size - .1 is top line, .2 is bottom.
-	'light.1' => {
-		'FTFontSize' => 10, # Code2000: max ascender 14, max descender 4
-		'FTBaseline' => 10,
-	},
-
-	'light.2' => {
-		'FTFontSize' => 11, # Code2000: max ascender 15, max descender 5
-		'FTBaseline' => 29,
-	},
-
-	# Huge - only one line.
-	'full.2' => {
-		'FTFontSize' => 24, # Code2000: max ascender 32, max descender 10
-		'FTBaseline' => 25,
-	},
-
-	# text for push on/off in fullscreen visu.
-	'high.2' => {
-		'FTFontSize' => 7,
-		'FTBaseline' => 7,
-	},
-);
-
-# narrow fonts for Boom
-$font2TTF{'standard_n.1'} = $font2TTF{'standard.1'};
-$font2TTF{'standard_n.2'} = $font2TTF{'standard.2'};
-$font2TTF{'light_n.1'}    = $font2TTF{'light.1'};
-$font2TTF{'light_n.2'}    = $font2TTF{'light.2'};
-$font2TTF{'full_n.2'}     = $font2TTF{'full.2'};
-
-
-# When using TTF to replace the following fonts, the string is has uc() run on it first
-my %font2uc = (
-	'standard.1'   => 1,
-	'standard_n.1' => 1,
-);
-
-# Our bitmap fonts are actually cp1252 (Windows-Latin1), NOT iso-8859-1.
+# Our bitmap fonts are actually cp1252 (windows-1252 - ANSI Latin 1; Western European), NOT iso-8859-1 (ISO 8859-1 Latin 1; Western European).
 # The cp1252 encoding has 27 printable characters in the range [\x80-\x9F] .
 # In iso-8859-1, this range is occupied entirely by non-printing control codes.
 # The Unicode codepoints for the characters in this range are > 255, so instead
@@ -169,33 +96,33 @@ my %font2uc = (
 # possible), the following remaps the affected Unicode codepoints to their
 # locations in cp1252.
 my %cp1252mapping = (
-	"\x{0152}" => "\x8C",  # LATIN CAPITAL LIGATURE OE
-	"\x{0153}" => "\x9C",  # LATIN SMALL LIGATURE OE
-	"\x{0160}" => "\x8A",  # LATIN CAPITAL LETTER S WITH CARON
-	"\x{0161}" => "\x9A",  # LATIN SMALL LETTER S WITH CARON
-	"\x{0178}" => "\x9F",  # LATIN CAPITAL LETTER Y WITH DIAERESIS
-	"\x{017D}" => "\x8E",  # LATIN CAPITAL LETTER Z WITH CARON
-	"\x{017E}" => "\x9E",  # LATIN SMALL LETTER Z WITH CARON
-	"\x{0192}" => "\x83",  # LATIN SMALL LETTER F WITH HOOK
-	"\x{02C6}" => "\x88",  # MODIFIER LETTER CIRCUMFLEX ACCENT
-	"\x{02DC}" => "\x98",  # SMALL TILDE
-	"\x{2013}" => "\x96",  # EN DASH
-	"\x{2014}" => "\x97",  # EM DASH
-	"\x{2018}" => "\x91",  # LEFT SINGLE QUOTATION MARK
-	"\x{2019}" => "\x92",  # RIGHT SINGLE QUOTATION MARK
-	"\x{201A}" => "\x82",  # SINGLE LOW-9 QUOTATION MARK
-	"\x{201C}" => "\x93",  # LEFT DOUBLE QUOTATION MARK
-	"\x{201D}" => "\x94",  # RIGHT DOUBLE QUOTATION MARK
-	"\x{201E}" => "\x84",  # DOUBLE LOW-9 QUOTATION MARK
-	"\x{2020}" => "\x86",  # DAGGER
-	"\x{2021}" => "\x87",  # DOUBLE DAGGER
-	"\x{2022}" => "\x95",  # BULLET
-	"\x{2026}" => "\x85",  # HORIZONTAL ELLIPSIS
-	"\x{2030}" => "\x89",  # PER MILLE SIGN
-	"\x{2039}" => "\x8B",  # SINGLE LEFT-POINTING ANGLE QUOTATION MARK
-	"\x{203A}" => "\x9B",  # SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
-	"\x{20AC}" => "\x80",  # EURO SIGN
-	"\x{2122}" => "\x99"   # TRADE MARK SIGN
+	"\x{0152}" => "\x8C",  # LATIN CAPITAL LIGATURE OE - "Œ"
+	"\x{0153}" => "\x9C",  # LATIN SMALL LIGATURE OE - "œ"
+	"\x{0160}" => "\x8A",  # LATIN CAPITAL LETTER S WITH CARON - "Š"
+	"\x{0161}" => "\x9A",  # LATIN SMALL LETTER S WITH CARON - "š"
+	"\x{0178}" => "\x9F",  # LATIN CAPITAL LETTER Y WITH DIAERESIS - "Ÿ"
+	"\x{017D}" => "\x8E",  # LATIN CAPITAL LETTER Z WITH CARON - "Ž"
+	"\x{017E}" => "\x9E",  # LATIN SMALL LETTER Z WITH CARON - "ž"
+	"\x{0192}" => "\x83",  # LATIN SMALL LETTER F WITH HOOK - "ƒ"
+	"\x{02C6}" => "\x88",  # MODIFIER LETTER CIRCUMFLEX ACCENT - "ˆ"
+	"\x{02DC}" => "\x98",  # SMALL TILDE - "˜"
+	"\x{2013}" => "\x96",  # EN DASH - "–"
+	"\x{2014}" => "\x97",  # EM DASH - "—"
+	"\x{2018}" => "\x91",  # LEFT SINGLE QUOTATION MARK - "‘"
+	"\x{2019}" => "\x92",  # RIGHT SINGLE QUOTATION MARK - "’"
+	"\x{201A}" => "\x82",  # SINGLE LOW-9 QUOTATION MARK - "‚"
+	"\x{201C}" => "\x93",  # LEFT DOUBLE QUOTATION MARK - "“"
+	"\x{201D}" => "\x94",  # RIGHT DOUBLE QUOTATION MARK - "”"
+	"\x{201E}" => "\x84",  # DOUBLE LOW-9 QUOTATION MARK - "„"
+	"\x{2020}" => "\x86",  # DAGGER - "†"
+	"\x{2021}" => "\x87",  # DOUBLE DAGGER - "‡"
+	"\x{2022}" => "\x95",  # BULLET - "•"
+	"\x{2026}" => "\x85",  # HORIZONTAL ELLIPSIS - "…"
+	"\x{2030}" => "\x89",  # PER MILLE SIGN - "‰"
+	"\x{2039}" => "\x8B",  # SINGLE LEFT-POINTING ANGLE QUOTATION MARK - "‹"
+	"\x{203A}" => "\x9B",  # SINGLE RIGHT-POINTING ANGLE QUOTATION MARK - "›"
+	"\x{20AC}" => "\x80",  # EURO SIGN - "€" to 
+	"\x{2122}" => "\x99"   # TRADE MARK SIGN - "™"
 );
 
 my $cp1252re = qr/(\x{0152}|\x{0153}|\x{0160}|\x{0161}|\x{0178}|\x{017D}|\x{017E}|\x{0192}|\x{02C6}|\x{02DC}|\x{2013}|\x{2014}|\x{2018}|\x{2019}|\x{201A}|\x{201C}|\x{201D}|\x{201E}|\x{2020}|\x{2021}|\x{2022}|\x{2026}|\x{2030}|\x{2039}|\x{203A}|\x{20AC}|\x{2122})/;
@@ -209,20 +136,13 @@ sub init {
 	$initialized = 1;
 
 	loadFonts();
+	Slim::Display::Lib::TTFFonts::refreshTTFFontSelection();
 
-	FONTDIRS:
-	for my $fontFolder (graphicsDirs()) {
-
-		# Try a few different fonts..
-		for my $fontFile (qw(arialuni.ttf ARIALUNI.TTF CODE2000.TTF Cyberbit.ttf CYBERBIT.TTF)) {
-
-			my $file = catdir($fontFolder, $fontFile);
-
-			if (-e $file) {
-				$TTFFontFile = $file;
-				last FONTDIRS;
-			}
-		}
+	if (Slim::Display::Lib::TTFFonts::currentTTFFile()) {
+		main::INFOLOG && $log->info('Using TrueType font file: ' . Slim::Display::Lib::TTFFonts::currentTTFFile());
+	}
+	else {
+		main::INFOLOG && $log->info('No TrueType font file found, using bitmap fallback');
 	}
 }
 
@@ -244,6 +164,56 @@ sub fontheight {
 	my $fontname = shift;
 
 	return $fontheight->{$fontname} if $fontname;
+}
+
+# Cache for fontYRange results.
+my %_fontYRangeCache;
+
+# Explicit y-boundaries for known bitmap fonts.
+# Values are stored as [top1, bottom1, top2, bottom2, ...].
+my %_fontYRangeOverrides = (
+	full       => [0, 31],
+	full_n     => [0, 31],
+	high       => [0, 8],
+	light      => [0, 13, 17, 31],
+	light_n    => [0, 13, 17, 31],
+	standard   => [0, 9, 13, 31],
+	standard_n => [0, 9, 13, 31],
+);
+
+# Return the (topY, bottomY) range used to draw text row boundaries.
+# Returns empty list if no explicit override is defined for the font.
+sub fontYRange {
+	my $fontname = shift;
+	return @{$_fontYRangeCache{$fontname}} if exists $_fontYRangeCache{$fontname};
+
+	my $height = $fontheight->{$fontname};
+	unless ($height) {
+		$_fontYRangeCache{$fontname} = [];
+		return ();
+	}
+
+	my ($baseName, $lineNo) = $fontname =~ /^(.*)\.(\d+)$/;
+	my $bounds = $baseName ? $_fontYRangeOverrides{$baseName} : undef;
+
+	if ($bounds) {
+		my $pairs = int(scalar(@$bounds) / 2);
+		my $idx = $pairs == 1 ? 0 : $lineNo - 1;
+
+		if ($idx >= 0 && $idx < $pairs) {
+			my $topY    = $bounds->[$idx * 2];
+			my $bottomY = $bounds->[$idx * 2 + 1];
+			$topY    = 0           if $topY < 0;
+			$bottomY = $height - 1 if $bottomY >= $height;
+			$bottomY = $topY       if $bottomY < $topY;
+
+			$_fontYRangeCache{$fontname} = [$topY, $bottomY];
+			return ($topY, $bottomY);
+		}
+	}
+
+	$_fontYRangeCache{$fontname} = [];
+	return ();
 }
 
 sub fontchars {
@@ -287,6 +257,7 @@ sub loadExtent {
 sub string {
 	my $defaultFontname = shift || return (0, '');
 	my $string          = shift;
+	my $ttfText         = $prefs->get('ttfText') || 0;
 
 	if (!defined $string) {
 		return (0, '');
@@ -298,8 +269,9 @@ sub string {
 		return (0, '');
 	};
 
-	# Fast path when string does not include control symbols or characters not in the bitmap font
-	if ($string !~ /[^\x00-\x09|\x0b-\x1a\|\x1e-\xff]/) {
+	# Fast path when string does not include control symbols or characters not in the bitmap font.
+	# Disable this optimization when TTF text rendering is enabled.
+	if (!$ttfText && $string !~ /[^\x00-\x09|\x0b-\x1a\|\x1e-\xff]/) {
 		my $bits = '';
 		my $len = length $string;
 		my $interspace = $defaultFont->[0];
@@ -313,30 +285,34 @@ sub string {
 	my ($FTFontSize, $FTBaseline);
 	my $useTTFNow = 0;
 	my $reverse = 0; # flag for whether the text was reversed (Bidi:R)
+	my $ttfMetrics;
 
 	my @ords = unpack($unpackTemplate, $string);
+	my $containsPrintableLatin1 = $string =~ /[\x20-\x{00FF}]/;
 
-	if (@ords && max(@ords) > 255) {
+	if (($ttfText && $containsPrintableLatin1) || (@ords && max(@ords) > 255)) {
 
-		if ($TTFFontFile && exists $font2TTF{$defaultFontname} && $canUseFreeType->()) {
+		$ttfMetrics = Slim::Display::Lib::TTFFonts::ttfMetricsForFont($defaultFontname);
+		my $ttfFile = Slim::Display::Lib::TTFFonts::currentTTFFile();
+
+		if ($ttfFile && $ttfMetrics && Slim::Display::Lib::TTFFonts::canUseFreeType()) {
 			$useTTFNow  = 1;
-			$FTFontSize = $font2TTF{$defaultFontname}->{'FTFontSize'};
-			$FTBaseline = $font2TTF{$defaultFontname}->{'FTBaseline'};
+			$FTFontSize = $ttfMetrics->{'FTFontSize'};
+			$FTBaseline = $ttfMetrics->{'FTBaseline'};
+		}
 
-			$ft ||= Font::FreeType->new->face($TTFFontFile);
-
-			# If the string contains any Unicode characters which exist in our bitmap,
-			# use the bitmap version instead of the TTF version
+		if (!$useTTFNow && $string =~ /[\x{0152}-\x{2122}]/ ) {
+			# No TTF available: remap cp1252 Unicode code points to their
+			# byte positions so the bitmap font can render them.
 			# https://forums.lyrion.org/showthread.php?t=42087
-			if ( $string =~ /[\x{0152}-\x{2122}]/ ) {
-				$string =~ s/$cp1252re/$cp1252mapping{$1}/ego;
-			}
+			$string =~ s/$cp1252re/$cp1252mapping{$1}/ego;
+			@ords = ();
 		}
 
 		if ($useTTFNow) {
 
-			# convert to upper case if fontname is in list of uc fonts
-			if ($font2uc{$defaultFontname}) {
+			# convert to upper case if configured for this font+TTF combination
+			if (Slim::Display::Lib::TTFFonts::ttfUCForFont($defaultFontname)) {
 				$string = uc($string);
 				@ords = ();
 			}
@@ -352,6 +328,7 @@ sub string {
 		} else {
 
 			# fall back to transliteration for people who don't have the font installed.
+			main::DEBUGLOG && $log->debug("TTF unavailable for $defaultFontname, transliterating display text to Latin1");
 			@ords = unpack($unpackTemplate, Slim::Utils::Unicode::utf8toLatin1Transliterate($string));
 		}
 	}
@@ -412,70 +389,21 @@ sub string {
 
 		} else {
 
-			if ($ord > 255 && $useTTFNow) {
+			my $isPrintableLatin1 = ($ord >= 32 && $ord <= 255);
+			my $isLyrionSpecialGlyph = ($ord >= 1 && $ord <= 16);
 
-				my $char_bits = $TTFCache{"$FTFontSize.$FTBaseline.$ord"};
+			if ($useTTFNow && !$isLyrionSpecialGlyph && ($ord > 255 || ($ttfText && $isPrintableLatin1))) {
 
-				if ( !$char_bits ) {
+				my $char_bits = Slim::Display::Lib::TTFFonts::renderCharTTF($ord, $FTFontSize, $FTBaseline);
 
-					my $bits_tmp = '';
-
-					$ft->set_char_size($FTFontSize, $FTFontSize, 96, 96);
-					my $glyph = $ft->glyph_from_char_code($ord) || $ft->glyph_from_char_code(9647); # square as fallback
-					my ($bmp, $left, $top) = $glyph->bitmap(FT_RENDER_MODE_MONO);
-					my $width  = length $bmp->[0];
-					my $height = scalar @{$bmp};
-
-					my $top_padding = $FTBaseline - $top;
-					my $start_y = 0;
-					if ($top_padding < 0) {
-						# Top of char is cut off
-						$start_y = abs($top_padding);
-						$top_padding = 0;
+				if ($char_bits) {
+					if ($cursorpos) {
+						my $len = length($char_bits);
+						$char_bits |= substr($defaultFont->[$ord0a] x $len, 0, $len);
+						$cursorpos = 0;
 					}
-
-					if ($height + $top_padding > 32) {
-						# Bottom of char is cut off
-						$height = 32 - $top_padding;
-					}
-
-					my $bottom_padding = 32 - $height - $top_padding + $start_y;
-					if ($bottom_padding < 0) {
-						$bottom_padding = 0;
-					}
-
-					# Add left_bearing padding if any
-					for (my $x = 0; $x < $glyph->left_bearing; $x++) {
-						$bits_tmp .= '0' x 32;
-					}
-
-					for (my $x = 0; $x < $width; $x++) {
-						$bits_tmp .= '0' x $top_padding;
-
-						for (my $y = $start_y; $y < $height; $y++) {
-							$bits_tmp .= (substr $bmp->[$y], $x, 1) eq "\xFF" ? 1 : 0;
-						}
-
-						$bits_tmp .= '0' x $bottom_padding;
-					}
-
-					# Add right_bearing padding if any
-					for (my $x = 0; $x < $glyph->right_bearing; $x++) {
-						$bits_tmp .= '0' x 32;
-					}
-
-					$char_bits = pack "B*", $bits_tmp;
-
-					$TTFCache{"$FTFontSize.$FTBaseline.$ord"} = $char_bits;
+					$bits .= $char_bits;
 				}
-
-				if ($cursorpos) {
-					my $len = length($char_bits);
-					$char_bits |= substr($defaultFont->[$ord0a] x $len, 0, $len);
-					$cursorpos = 0;
-				}
-
-				$bits .= $char_bits;
 
 			} else {
 
@@ -542,7 +470,8 @@ sub graphicsDirs {
 }
 
 sub fontCacheFile {
-	my $file = catdir( $prefs->get('cachedir'),
+	my $cacheDir = $prefs->get('cachedir') || Slim::Utils::OSDetect::dirsFor('cache');
+	my $file = catdir( $cacheDir,
 		Slim::Utils::OSDetect::OS() eq 'unix' ? 'fontcache' : 'fonts');
 
 	# Add the os arch to the cache file name, to avoid crashes when going
@@ -606,6 +535,7 @@ sub loadFonts {
 	my $forceParse = shift;
 
 	init() if !$initialized;
+	Slim::Display::Lib::TTFFonts::refreshTTFFontSelection();
 
 	my ($defcache, $mtimesum, %fontfiles) = fontfiles();
 
@@ -714,7 +644,10 @@ sub loadFonts {
 	$fonts->{'version'} = $fontCacheVersion;
 	$fonts->{'mtimesum'} = $mtimesum;
 
-	nstore($fonts, $fontCache);
+	eval { nstore($fonts, $fontCache); };
+	if ($@) {
+		$log->warn("Could not write font cache $fontCache: $@");
+	}
 }
 
 # parse the array of pixels ino a font table

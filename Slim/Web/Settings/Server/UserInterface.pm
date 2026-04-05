@@ -11,10 +11,14 @@ use strict;
 use base qw(Slim::Web::Settings);
 
 use Slim::Player::Client;
+use Slim::Display::Lib::Fonts;
+use Slim::Display::Lib::TTFFonts;
+use Slim::Utils::Log;
 use Slim::Utils::Strings qw(string);
 use Slim::Utils::Prefs;
 
 my $prefs = preferences('server');
+my $fontslog = logger('player.fonts');
 
 sub name {
 	return Slim::Web::HTTP::CSRF->protectName('INTERFACE_SETTINGS');
@@ -26,7 +30,7 @@ sub page {
 
 sub prefs {
 	return ($prefs, qw(displaytexttimeout skin itemsPerPage refreshRate thumbSize additionalPlaylistButtons
-					   longdateFormat shortdateFormat timeFormat showArtist showYear titleFormatWeb));
+					   longdateFormat shortdateFormat timeFormat showArtist showYear titleFormatWeb ttfText ttfFont));
 }
 
 sub handler {
@@ -35,7 +39,25 @@ sub handler {
 	# handle array prefs in this handler, scalar prefs in SUPER::handler
 	my @prefs = qw(titleFormat);
 
+	my $ttfPrefChanged   = 0;
+	my $ttfFontChanged   = 0;
+	my $clearTTFCache    = 0;
+
 	if ($paramRef->{'saveSettings'}) {
+		$clearTTFCache = $paramRef->{'clearTTFCache'} ? 1 : 0;
+
+		$ttfPrefChanged = ($paramRef->{'pref_ttfText'} || 0) ne ($prefs->get('ttfText') || 0);
+		my $oldTTFFont = $prefs->get('ttfFont') || '';
+		my $newTTFFont = $paramRef->{'pref_ttfFont'} || '';
+		my %availableTTFFonts = map { $_ => 1 } @{ Slim::Display::Lib::TTFFonts::availableTTFFonts() || [] };
+
+		# Unknown value means "automatic" to preserve fallback behavior.
+		if ($newTTFFont && !$availableTTFFonts{$newTTFFont}) {
+			$newTTFFont = '';
+			$paramRef->{'pref_ttfFont'} = '';
+		}
+
+		$ttfFontChanged = $newTTFFont ne $oldTTFFont;
 
 		for my $pref (@prefs) {
 
@@ -69,7 +91,6 @@ sub handler {
 			$paramRef->{'warning'} .= '<span id="popupWarning">' . string("SETUP_SKIN_OK") . '</span>';
 		}
 
-
 		for my $client (Slim::Player::Client::clients()) {
 
 			$client->currentPlaylistChangeTime(Time::HiRes::time());
@@ -85,8 +106,35 @@ sub handler {
 	$paramRef->{'timeoptions'}      = Slim::Utils::DateTime::timeFormats();
 
 	$paramRef->{'skinoptions'} = { Slim::Web::HTTP::skins(1) };
+	$paramRef->{'ttfFontOptions'} = [ map {
+		my $label = $_;
+		$label =~ s{.*[\\/]}{};
+		{ value => $_, label => $label }
+	} @{ Slim::Display::Lib::TTFFonts::availableTTFFonts() || [] } ];
 
-	return $class->SUPER::handler($client, $paramRef, $pageSetup);
+	my $result = $class->SUPER::handler($client, $paramRef, $pageSetup);
+
+	# Apply TrueType changes after prefs are saved.
+	if ($ttfPrefChanged || $ttfFontChanged || $clearTTFCache) {
+		my $fontCache = Slim::Display::Lib::Fonts::fontCacheFile();
+		unlink $fontCache if $fontCache && -f $fontCache;
+		Slim::Display::Lib::Fonts::loadFonts(1);
+
+		if ($clearTTFCache) {
+			Slim::Display::Lib::TTFFonts::forceRefreshTTFState();
+		} else {
+			Slim::Display::Lib::TTFFonts::refreshTTFFontSelection();
+		}
+
+		main::INFOLOG && $fontslog->info($clearTTFCache ? 'TrueType cache cleared' : 'TrueType settings changed');
+
+		for my $client (Slim::Player::Client::clients()) {
+			next unless $client && $client->display;
+			eval { $client->display->resetDisplay(); $client->update() };
+		}
+	}
+
+	return $result;
 }
 
 1;

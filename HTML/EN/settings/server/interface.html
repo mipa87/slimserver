@@ -32,6 +32,23 @@
 		[% END %]
 	[% END %]
 
+	[% WRAPPER setting title="SETUP_TTF_FONT" desc="SETUP_TTF_FONT_DESC" %]
+		<select class="stdedit" name="pref_ttfFont" id="ttfFont">
+			<option [% IF NOT prefs.pref_ttfFont %]selected [% END %]value="">[% 'SETUP_TTF_FONT_AUTO' | getstring %]</option>
+			[% FOREACH option = ttfFontOptions %]
+				<option [% IF prefs.pref_ttfFont == option.value %]selected [% END %]value="[% option.value | html %]">[% option.label | html %]</option>
+			[% END %]
+		</select>
+		<input type="submit" class="stdclick" name="clearTTFCache" value="[% 'SETUP_TTF_CLEAR_CACHE' | getstring %]" style="margin-left:8px;">
+	[% END %]
+
+	[% WRAPPER setting title="SETUP_TTF_TEXT" desc="SETUP_TTF_TEXT_DESC" %]
+		<select class="stdedit" name="pref_ttfText" id="ttfText">
+			<option [% IF NOT prefs.pref_ttfText %]selected [% END %]value="0">[% 'DISABLED' | getstring %]</option>
+			<option [% IF prefs.pref_ttfText %]selected [% END %]value="1">[% 'ENABLED' | getstring %]</option>
+		</select>
+	[% END %]
+
 	[% WRAPPER setting title="SETUP_TITLEFORMAT" desc="SETUP_GROUP_TITLEFORMATS_DESC" %]
 		[% FOREACH format = prefs.pref_titleFormat %]
 			<input type=radio [% IF prefs.pref_titleFormatWeb == loop.index %]checked="1" [% END %]value="[% loop.index %]" name="pref_titleFormatWeb">

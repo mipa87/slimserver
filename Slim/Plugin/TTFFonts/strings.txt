@@ -1,0 +1,9 @@
+PLUGIN_TTFFONTS
+	EN	TTFFonts Plugin
+
+PLUGIN_TTFFONTS_DESC
+	CS	Poskytuje další písma TrueType pro přehrávače s grafickým displejem (Squeezebox 2/3, Transporter, Boom, squeezelite-esp32). Obsahuje Noto Sans (různé tučnosti a šířky), DejaVu Sans, Bruno Ace, Better VCR, Tomorrow, IBM Plex Mono, Fira Mono a Roboto Mono s rozsáhlou podporou latinky, řeckého a cyrilského písma. Po instalaci lze písma vybrat v Nastavení > Rozhraní > Písmo TrueType.
+	DE	Stellt zusätzliche TrueType-Schriften für Player mit grafischem Display bereit (Squeezebox 2/3, Transporter, Boom, squeezelite-esp32). Enthält Noto Sans (mehrere Stärken und Breiten), DejaVu Sans, Bruno Ace, Better VCR, Tomorrow, IBM Plex Mono, Fira Mono und Roboto Mono mit umfassender Unterstützung für lateinische, griechische und kyrillische Schrift. Nach der Installation können die Schriften unter Einstellungen > Benutzeroberfläche > TrueType-Schrift ausgewählt werden.
+	EN	Provides additional TrueType fonts for players with graphical displays (Squeezebox 2/3, Transporter, Boom, squeezelite-esp32). Includes Noto Sans (multiple weights and widths), DejaVu Sans, Bruno Ace, Better VCR, Tomorrow, IBM Plex Mono, Fira Mono and Roboto Mono with broad Latin, Greek and Cyrillic coverage. After installation, fonts can be selected in Settings > Interface > TrueType Font.
+	FR	Fournit des polices TrueType supplémentaires pour les lecteurs dotés d'un affichage graphique (Squeezebox 2/3, Transporter, Boom, squeezelite-esp32). Inclut Noto Sans (plusieurs graisses et largeurs), DejaVu Sans, Bruno Ace, Better VCR, Tomorrow, IBM Plex Mono, Fira Mono et Roboto Mono avec une large couverture des caractères latins, grecs et cyrilliques. Après installation, les polices peuvent être sélectionnées dans Paramètres > Interface > Police TrueType.
+

@@ -1,0 +1,9 @@
+Copyright 2014 Google Inc. All Rights Reserved.
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is available with a FAQ at: https://openfontlicense.org
+
+Full license text: https://github.com/googlefonts/roboto/blob/main/LICENSE
+
+Font source: https://github.com/googlefonts/roboto
+Google Fonts: https://fonts.google.com/specimen/Roboto+Mono

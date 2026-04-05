@@ -253,6 +253,7 @@ our (
 	$checkstrings,
 	$charset,
 	$dbtype,
+	$debugttf,
 	$d_startup, # Needed for Slim::bootstrap
 );
 
@@ -450,6 +451,15 @@ sub init {
 
 	main::INFOLOG && $log->info("Server HTTP init...");
 	Slim::Web::HTTP::init();
+
+	if ($debugttf) {
+		main::INFOLOG && $log->info("TTF debug mode enabled");
+		require Slim::Display::Lib::TTFFonts;
+		Slim::Display::Lib::TTFFonts::setReloadTTFMetricsOnFontChange(1);
+		Slim::Display::Lib::TTFFonts::setUseTTFGlyphCache(0);
+		require Slim::Display::Graphics;
+		Slim::Display::Graphics::setShowTextRowBoundsOverlay(1);
+	}
 
 	if (main::TRANSCODING) {
 		main::INFOLOG && $log->info("Source conversion init..");
@@ -709,6 +719,7 @@ Usage: $0 [--diag] [--daemon] [--stdio]
                         which don't have full utf8 locale installed
     --logging        => Enable logging for the specified comma separated categories
     --localfile      => Enable LocalFile protocol handling for locally connected squeezelite service
+    --debugttf       => Enable TrueType font debugging (reload metrics on change, disable glyph cache, show row boundaries)
 
 Commands may be sent to the server through standard in and will be echoed via
 standard out.  See complete documentation for details on the command syntax.
@@ -731,6 +742,7 @@ sub initOptions {
 		'httpaddr=s'    => \$httpaddr,
 		'httpport=s'    => \$httpport,
 		'advertiseaddr=s' => \$advertiseaddr,
+		'debugttf'      => \$debugttf,
 		'logfile=s'     => \$logfile,
 		'logdir=s'      => \$logdir,
 		'logconfig=s'   => \$logconf,

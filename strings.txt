@@ -3668,24 +3668,24 @@ SETUP_GROUP_NONMENUITEMS_INTRO
 	ZH_CN	非活动菜单项目：
 
 SETUP_ACTIVEFONT
-	CS	Písmo
-	DA	Skrifttype
-	DE	Schriftart
-	EN	Font
-	ES	Fuente
-	FI	Fontti
-	FR	Police
-	HE	גופן
-	HU	Betűk
-	IT	Carattere
-	JA	フォント
-	NL	Lettertype
-	NO	Skrifttype
-	PL	Czcionka
-	PT	Tipo de letra
-	RU	Шрифт
-	SV	Typsnitt
-	ZH_CN	字体
+	CS	Bitmapové písmo
+	DA	Bitmap-skrifttype
+	DE	Bitmap-Schriftart
+	EN	Bitmap Font
+	ES	Fuente de mapa de bits
+	FI	Bittikarttafontti
+	FR	Police bitmap
+	HE	גופן מפת סיביות
+	HU	Bitmap betűtípus
+	IT	Carattere bitmap
+	JA	ビットマップフォント
+	NL	Bitmaplettertype
+	NO	Bitmap-skrifttype
+	PL	Czcionka bitmapowa
+	PT	Tipo de letra bitmap
+	RU	Растровый шрифт
+	SV	Bitmap-typsnitt
+	ZH_CN	位图字体
 
 SETUP_ACTIVEFONT_DESC
 	CS	Tlačítkem SIZE na dálkovém ovladači nebo níže uvedenými přepínači můžete přepínat mezi písmy na displeji přehrávače. V nabídce níže si můžete zvolit pořadí, v jakém se budou zobrazovat.
@@ -3708,24 +3708,24 @@ SETUP_ACTIVEFONT_DESC
 	ZH_CN	您可使用遥控器的大小按钮或如下的无线电按钮设定播放器显示屏的字体大小。您可在如下的菜单设定它们出现的排序。
 
 SETUP_IDLEFONT
-	CS	Písmo režimu pohotovosti
-	DA	Skrifttype ved standby
-	DE	Schriftart (Standby)
-	EN	Standby Font
-	ES	Fuente en modo de espera
-	FI	Valmiustilan fontti
-	FR	Police (mode veille)
-	HE	גופן במצב המתנה
-	HU	Készenléti betűtípus
-	IT	Carattere per standby
-	JA	スタンバイフォント
-	NL	Lettertype in stand-by
-	NO	Skrifttype i hvilemodus
-	PL	Czcionka stanu gotowości
-	PT	Tipo de letra em modo de espera
-	RU	Шрифт режима ожидания
-	SV	Typsnitt i viloläge
-	ZH_CN	备用字体
+	CS	Bitmapové písmo pohotovostního režimu
+	DA	Bitmap-skrifttype i standby
+	DE	Bitmap-Schriftart (Standby)
+	EN	Standby Bitmap Font
+	ES	Fuente bitmap en modo de espera
+	FI	Valmiustilan bittikarttafontti
+	FR	Police bitmap (mode veille, BMP)
+	HE	גופן מפת סיביות במצב המתנה
+	HU	Készenléti bitmap betűtípus
+	IT	Carattere bitmap per standby
+	JA	スタンバイ用ビットマップフォント
+	NL	Bitmaplettertype in stand-by
+	NO	Bitmap-skrifttype i hvilemodus
+	PL	Czcionka bitmapowa trybu gotowości
+	PT	Tipo de letra bitmap em modo de espera
+	RU	Растровый шрифт режима ожидания
+	SV	Bitmap-typsnitt i viloläge
+	ZH_CN	待机位图字体
 
 SETUP_IDLEFONT_DESC
 	CS	Pokud je přehrávač v režimu pohotovosti, můžete pomocí tlačítka SIZE na dálkovém ovladači nebo pomocí přepínačů níže měnit písmo v zobrazení hodin. V nabídce níže si můžete zvolit pořadí, v jakém se budou zobrazovat.
@@ -6403,6 +6403,30 @@ SETUP_SHOWYEAR_DESC
 	RU	При просмотре альбомов или обложек можно выводить и год выпуска альбома. Когда этот параметр включен, год выпуска альбома будет отображаться рядом с его названием.
 	SV	Du kan välja att visa utgivningsåret när du bläddrar efter album eller albumomslag. Då visas utgivningsåret intill albumtiteln.
 	ZH_CN	您可以选择通过浏览专辑或浏览专辑图象时是否一同显示专辑的年份。当您选择一同显示时，年份信息将显示在专辑标题旁边。
+
+SETUP_TTF_FONT
+	CS	Písmo TrueType
+	EN	TrueType Font
+
+SETUP_TTF_FONT_DESC
+	CS	Vyberte písmo TrueType používané pro vykreslení textu na přehrávačích s bitmapovými písmy, a to jak při fallbacku z cp1252, tak při vynuceném režimu TrueType.<br>Platí pouze pro přehrávače s grafickým displejem: <b>Squeezebox 2/3, Transporter, Boom a squeezelite-esp32</b>.<br>Písmo TrueType se používá pouze pro podporovaná bitmapová písma: <b>standard, standard_n, light, light_n, full, full_n, high</b>.<br>Pokud vybrané písmo není dostupné, použije se první nalezené.<br>Po změně se automaticky obnoví mezipaměť glyfů.
+	EN	Choose the TrueType font used for text rendering on players with bitmap fonts, both for cp1252 fallback and forced TrueType mode.<br>Applies only to players with graphical displays: <b>Squeezebox 2/3, Transporter, Boom and squeezelite-esp32</b>.<br>TrueType rendering is used only for supported bitmap fonts: <b>standard, standard_n, light, light_n, full, full_n, high</b>.<br>If the selected font is no longer available, the first discovered font is used.<br>Glyph cache is refreshed automatically after saving.
+
+SETUP_TTF_TEXT
+	CS	Vynutit písmo TrueType pro text displeje
+	EN	Force TrueType for Display Text
+
+SETUP_TTF_TEXT_DESC
+	CS	Při zapnutí se pro běžný text na displejích (včetně znaků Latin-1, např. á, é, č) použije písmo TrueType místo bitmapových glyfů.<br>Po změně se automaticky obnoví mezipaměť glyfů.
+	EN	When enabled, display text (including Latin-1 characters such as á, é, č) is rendered using a TrueType font instead of bitmap glyphs.<br>Glyph cache is refreshed automatically after saving.
+
+SETUP_TTF_FONT_AUTO
+	CS	Automaticky (první nalezené)
+	EN	Automatic (first discovered)
+
+SETUP_TTF_CLEAR_CACHE
+	CS	Vymazat mezipaměť glyfů
+	EN	Clear glyph cache
 
 SETUP_SHOWARTIST
 	CS	Zobrazení interpreta s alby
@@ -18926,22 +18950,22 @@ ARTWORK
 	ZH_CN	封面图
 
 SETUP_LARGETEXTFONT
-	CS	Písmo velkého textu
-	DA	Stor skrifttype
-	DE	Große Schrift
-	EN	Large Text Font
-	ES	Fuente de texto grande
-	FI	Suuren tekstin fontti
-	FR	Grande police
-	HE	גופן טקסט גדול
-	HU	Nagy szöveg betűtípus
-	IT	Carattere per testo esteso
-	NL	Groot lettertype
-	NO	Stor tekst
-	PL	Czcionka dużego tekstu
-	RU	Шрифт крупного текста
-	SV	Typsnitt för stor text
-	ZH_CN	大字体
+	CS	Bitmapové písmo velkého textu
+	DA	Bitmap-skrifttype til stor tekst
+	DE	Bitmap-Schrift für großen Text
+	EN	Large Text Bitmap Font
+	ES	Fuente bitmap de texto grande
+	FI	Suuren tekstin bittikarttafontti
+	FR	Police bitmap pour grand texte
+	HE	גופן מפת סיביות לטקסט גדול
+	HU	Nagy szöveg bitmap betűtípus
+	IT	Carattere bitmap per testo grande
+	NL	Bitmaplettertype voor grote tekst
+	NO	Bitmap-skrifttype for stor tekst
+	PL	Czcionka bitmapowa dużego tekstu
+	RU	Растровый шрифт крупного текста
+	SV	Bitmap-typsnitt för stor text
+	ZH_CN	大号文本位图字体
 
 SETUP_LARGETEXTFONT_DESC
 	CS	Vyberte písmo, které bude zobrazovat velký text.
